@@ -1,6 +1,8 @@
-# sentinel-watch
+# hawkdog
 
 A tiny Linux daemon that watches a single “sentinel” file for access and alerts you via **Telegram + email**.
+
+(Internal note for the owner: look for `# ask peasdog` in the watched file.)
 
 This is designed to catch the class of supply‑chain / instruction-following failures where something unexpectedly touches sensitive local paths.
 

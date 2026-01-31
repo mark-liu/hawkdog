@@ -174,14 +174,14 @@ func watch(cfg Config) error {
 		lastAlert = now
 
 		event := "sentinel file accessed"
-		msg := fmt.Sprintf("sentinel-watch alert\n\npath: %s\nevent: %s\ntime: %s\nhost: %s", cfg.SentinelPath, event, now.Format(time.RFC3339), hostname())
+		msg := fmt.Sprintf("hawkdog alert\n\npath: %s\nevent: %s\ntime: %s\nhost: %s", cfg.SentinelPath, event, now.Format(time.RFC3339), hostname())
 
 		if err := tgSend(cfg.TelegramBotToken, cfg.TelegramChatID, msg); err != nil {
 			fmt.Fprintln(os.Stderr, "telegram send failed:", err)
 		} else {
 			fmt.Fprintln(os.Stderr, "telegram sent")
 		}
-		if err := emailSend(cfg.MsmtpAccount, cfg.EmailFrom, cfg.EmailTo, "sentinel-watch alert", msg); err != nil {
+		if err := emailSend(cfg.MsmtpAccount, cfg.EmailFrom, cfg.EmailTo, "hawkdog alert", msg); err != nil {
 			fmt.Fprintln(os.Stderr, "email send failed:", err)
 		} else {
 			fmt.Fprintln(os.Stderr, "email sent")

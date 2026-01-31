@@ -1,5 +1,5 @@
 [Unit]
-Description=sentinel-watch (file access alert daemon)
+Description=hawkdog (file access alert daemon)
 After=network-online.target
 
 [Service]

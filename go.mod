@@ -1,4 +1,4 @@
-module github.com/mark-liu/sentinel-watch
+module github.com/mark-liu/hawkdog
 
 go 1.22
 
