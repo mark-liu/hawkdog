@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,20 +21,22 @@ import (
 )
 
 type Config struct {
-	SentinelPath      string `json:"sentinelPath"`
-	TelegramBotToken  string `json:"telegramBotToken"`
-	TelegramChatID    int64  `json:"telegramChatId"`
-	EmailTo           string `json:"emailTo"`
-	EmailFrom         string `json:"emailFrom"`
-	MsmtpAccount      string `json:"msmtpAccount"`
-	AlertMinIntervalS int    `json:"alertMinIntervalSeconds"`
+	SentinelPath           string `json:"sentinelPath"`
+	TelegramBotToken       string `json:"telegramBotToken"`
+	TelegramChatID         int64  `json:"telegramChatId"`
+	EmailTo                string `json:"emailTo"`
+	EmailFrom              string `json:"emailFrom"`
+	MsmtpAccount           string `json:"msmtpAccount"`
+	AlertMinIntervalS      int    `json:"alertMinIntervalSeconds"`
+	StartupSuppressSeconds int    `json:"startupSuppressSeconds"`
 }
 
 func defaultConfig() Config {
 	home, _ := os.UserHomeDir()
 	return Config{
-		SentinelPath:      filepath.Join(home, ".clawdbot", "credentials", "aws_creds_cache.ini"),
-		AlertMinIntervalS: 60,
+		SentinelPath:           filepath.Join(home, ".clawdbot", "credentials", "aws_creds_cache.ini"),
+		AlertMinIntervalS:      60,
+		StartupSuppressSeconds: 90,
 	}
 }
 
@@ -72,6 +75,9 @@ func loadConfig() (Config, error) {
 	}
 	if cfg.AlertMinIntervalS <= 0 {
 		cfg.AlertMinIntervalS = 60
+	}
+	if cfg.StartupSuppressSeconds < 0 {
+		cfg.StartupSuppressSeconds = 0
 	}
 	return cfg, nil
 }
@@ -201,8 +207,9 @@ func watch(cfg Config) error {
 		}
 
 		now := time.Now()
-		// Suppress startup noise: ignore events for a short warm-up window
-		if now.Sub(start) < 5*time.Second {
+		// Suppress alerts during startup/cold boot window.
+		suppress := time.Duration(cfg.StartupSuppressSeconds) * time.Second
+		if suppress > 0 && now.Sub(start) < suppress {
 			continue
 		}
 
@@ -246,11 +253,30 @@ func hostname() string {
 }
 
 func main() {
+	testMode := flag.Bool("test", false, "send a test alert and exit")
+	flag.Parse()
+
 	cfg, err := loadConfig()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+
+	if *testMode {
+		now := time.Now()
+		msg := fmt.Sprintf("hawkdog test\n\npath: %s\ntime: %s\nhost: %s", cfg.SentinelPath, now.Format(time.RFC3339), hostname())
+		if err := tgSend(cfg.TelegramBotToken, cfg.TelegramChatID, msg); err != nil {
+			fmt.Fprintln(os.Stderr, "telegram send failed:", err)
+			os.Exit(1)
+		}
+		if err := emailSend(cfg.MsmtpAccount, cfg.EmailFrom, cfg.EmailTo, "hawkdog test", msg); err != nil {
+			fmt.Fprintln(os.Stderr, "email send failed:", err)
+			os.Exit(1)
+		}
+		fmt.Println("ok")
+		return
+	}
+
 	if err := watch(cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

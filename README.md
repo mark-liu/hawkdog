@@ -37,7 +37,8 @@ bash scripts/install-user-service.sh
 ```
 
 ### 2) Configure
-Create `~/.config/sentinel-watch/config.json` (permissions 600):
+Create `~/.config/hawkdog/config.json` (preferred) or `~/.config/sentinel-watch/config.json` (legacy). Permissions 600.
+
 ```json
 {
   "sentinelPath": "/home/ubuntu/.clawdbot/credentials/aws_creds_cache.ini",
@@ -45,13 +46,20 @@ Create `~/.config/sentinel-watch/config.json` (permissions 600):
   "telegramChatId": 1592940510,
   "emailTo": "mark@prove.com.au",
   "emailFrom": "peasdog@idlepig.com",
-  "msmtpAccount": "idlepig"
+  "msmtpAccount": "idlepig",
+  "alertMinIntervalSeconds": 60,
+  "startupSuppressSeconds": 90
 }
 ```
 
 ### 3) Run (manual)
 ```bash
 ./hawkdog
+```
+
+Send a test alert without touching the watched file:
+```bash
+./hawkdog --test
 ```
 
 ### 4) Run as a systemd user service
