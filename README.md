@@ -24,13 +24,16 @@ This is designed to catch the class of supply‑chain / instruction-following fa
 ## Install
 
 ### Option A: Install from a release (recommended)
-1) Download the latest release for your platform from GitHub Releases.
-2) Verify `checksums.txt`.
-3) Place the `hawkdog` binary somewhere in your PATH (or follow the systemd user service install below).
+Use the installer script (downloads the latest release, verifies checksums, installs a systemd user service):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mark-liu/hawkdog/main/scripts/install-from-release.sh | bash
+```
 
 ### Option B: Build from source
 ```bash
 go build -o hawkdog ./cmd/sentinel-watch
+bash scripts/install-user-service.sh
 ```
 
 ### 2) Configure

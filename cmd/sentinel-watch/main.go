@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
@@ -39,10 +40,17 @@ func defaultConfig() Config {
 func loadConfig() (Config, error) {
 	cfg := defaultConfig()
 	home, _ := os.UserHomeDir()
-	p := filepath.Join(home, ".config", "sentinel-watch", "config.json")
+	// Prefer new path, fall back to legacy.
+	p := filepath.Join(home, ".config", "hawkdog", "config.json")
 	b, err := os.ReadFile(p)
 	if err != nil {
-		return cfg, fmt.Errorf("read config %s: %w", p, err)
+		p2 := filepath.Join(home, ".config", "sentinel-watch", "config.json")
+		b2, err2 := os.ReadFile(p2)
+		if err2 != nil {
+			return cfg, fmt.Errorf("read config %s (or legacy %s): %w", p, p2, err)
+		}
+		p = p2
+		b = b2
 	}
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return cfg, fmt.Errorf("parse config: %w", err)
@@ -132,6 +140,29 @@ func emailSend(msmtpAccount, from, to, subject, body string) error {
 	return nil
 }
 
+func maskString(mask uint32) string {
+	parts := []string{}
+	if mask&unix.IN_OPEN != 0 {
+		parts = append(parts, "OPEN")
+	}
+	if mask&unix.IN_MODIFY != 0 {
+		parts = append(parts, "MODIFY")
+	}
+	if mask&unix.IN_ATTRIB != 0 {
+		parts = append(parts, "ATTRIB")
+	}
+	if mask&unix.IN_DELETE_SELF != 0 {
+		parts = append(parts, "DELETE_SELF")
+	}
+	if mask&unix.IN_MOVE_SELF != 0 {
+		parts = append(parts, "MOVE_SELF")
+	}
+	if len(parts) == 0 {
+		return fmt.Sprintf("MASK_0x%x", mask)
+	}
+	return strings.Join(parts, "+")
+}
+
 func watch(cfg Config) error {
 	if err := ensureSentinel(cfg.SentinelPath); err != nil {
 		return fmt.Errorf("ensure sentinel: %w", err)
@@ -175,26 +206,33 @@ func watch(cfg Config) error {
 			continue
 		}
 
-		// Signature-based dedupe to avoid spam if multiple identical events arrive.
-		sig := "access"
-		if sig == lastSig && !lastAlert.IsZero() && now.Sub(lastAlert) < minInterval {
-			continue
-		}
-		lastSig = sig
-		lastAlert = now
+		// Parse one or more events from the inotify buffer
+		off := 0
+		for off < n {
+			ev := (*unix.InotifyEvent)(unsafe.Pointer(&buf[off]))
+			m := ev.Mask
+			off += unix.SizeofInotifyEvent + int(ev.Len)
 
-		event := "file accessed"
-		msg := fmt.Sprintf("hawkdog alert\n\npath: %s\nevent: %s\ntime: %s\nhost: %s", cfg.SentinelPath, event, now.Format(time.RFC3339), hostname())
+			sig := fmt.Sprintf("0x%x", m)
+			if sig == lastSig && !lastAlert.IsZero() && now.Sub(lastAlert) < minInterval {
+				continue
+			}
+			lastSig = sig
+			lastAlert = now
 
-		if err := tgSend(cfg.TelegramBotToken, cfg.TelegramChatID, msg); err != nil {
-			fmt.Fprintln(os.Stderr, "telegram send failed:", err)
-		} else {
-			fmt.Fprintln(os.Stderr, "telegram sent")
-		}
-		if err := emailSend(cfg.MsmtpAccount, cfg.EmailFrom, cfg.EmailTo, "hawkdog alert", msg); err != nil {
-			fmt.Fprintln(os.Stderr, "email send failed:", err)
-		} else {
-			fmt.Fprintln(os.Stderr, "email sent")
+			event := maskString(m)
+			msg := fmt.Sprintf("hawkdog alert\n\npath: %s\nevent: %s\ntime: %s\nhost: %s", cfg.SentinelPath, event, now.Format(time.RFC3339), hostname())
+
+			if err := tgSend(cfg.TelegramBotToken, cfg.TelegramChatID, msg); err != nil {
+				fmt.Fprintln(os.Stderr, "telegram send failed:", err)
+			} else {
+				fmt.Fprintln(os.Stderr, "telegram sent")
+			}
+			if err := emailSend(cfg.MsmtpAccount, cfg.EmailFrom, cfg.EmailTo, "hawkdog alert", msg); err != nil {
+				fmt.Fprintln(os.Stderr, "email send failed:", err)
+			} else {
+				fmt.Fprintln(os.Stderr, "email sent")
+			}
 		}
 	}
 }
