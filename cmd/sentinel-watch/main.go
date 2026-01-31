@@ -150,7 +150,9 @@ func watch(cfg Config) error {
 	}
 	_ = wd
 
+	start := time.Now()
 	lastAlert := time.Time{}
+	lastSig := ""
 	minInterval := time.Duration(cfg.AlertMinIntervalS) * time.Second
 
 	buf := make([]byte, 4096)
@@ -168,12 +170,20 @@ func watch(cfg Config) error {
 		}
 
 		now := time.Now()
-		if !lastAlert.IsZero() && now.Sub(lastAlert) < minInterval {
+		// Suppress startup noise: ignore events for a short warm-up window
+		if now.Sub(start) < 5*time.Second {
 			continue
 		}
+
+		// Signature-based dedupe to avoid spam if multiple identical events arrive.
+		sig := "access"
+		if sig == lastSig && !lastAlert.IsZero() && now.Sub(lastAlert) < minInterval {
+			continue
+		}
+		lastSig = sig
 		lastAlert = now
 
-		event := "sentinel file accessed"
+		event := "file accessed"
 		msg := fmt.Sprintf("hawkdog alert\n\npath: %s\nevent: %s\ntime: %s\nhost: %s", cfg.SentinelPath, event, now.Format(time.RFC3339), hostname())
 
 		if err := tgSend(cfg.TelegramBotToken, cfg.TelegramChatID, msg); err != nil {
