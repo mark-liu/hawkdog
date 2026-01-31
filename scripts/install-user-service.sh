@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APPDIR="$HOME/.local/share/sentinel-watch"
+APPDIR="$HOME/.local/share/hawkdog"
 mkdir -p "$APPDIR"
 
 cd "$(dirname "$0")/.."
 
-go build -o "$APPDIR/sentinel-watch" ./cmd/sentinel-watch
+go build -o "$APPDIR/hawkdog" ./cmd/sentinel-watch
 
 mkdir -p "$HOME/.config/systemd/user"
 cp systemd/sentinel-watch.service "$HOME/.config/systemd/user/sentinel-watch.service"
@@ -14,6 +14,6 @@ cp systemd/sentinel-watch.service "$HOME/.config/systemd/user/sentinel-watch.ser
 systemctl --user daemon-reload
 systemctl --user enable --now sentinel-watch.service
 
-echo "Installed and started sentinel-watch (user service)."
+echo "Installed and started hawkdog (user service)."
 
 echo "Create config at: $HOME/.config/sentinel-watch/config.json (chmod 600)"

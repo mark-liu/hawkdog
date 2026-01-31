@@ -23,9 +23,14 @@ This is designed to catch the class of supply‑chain / instruction-following fa
 
 ## Install
 
-### 1) Build
+### Option A: Install from a release (recommended)
+1) Download the latest release for your platform from GitHub Releases.
+2) Verify `checksums.txt`.
+3) Place the `hawkdog` binary somewhere in your PATH (or follow the systemd user service install below).
+
+### Option B: Build from source
 ```bash
-go build -o sentinel-watch ./cmd/sentinel-watch
+go build -o hawkdog ./cmd/sentinel-watch
 ```
 
 ### 2) Configure
@@ -43,7 +48,7 @@ Create `~/.config/sentinel-watch/config.json` (permissions 600):
 
 ### 3) Run (manual)
 ```bash
-./sentinel-watch
+./hawkdog
 ```
 
 ### 4) Run as a systemd user service

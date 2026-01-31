@@ -4,8 +4,8 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/.local/share/sentinel-watch
-ExecStart=%h/.local/share/sentinel-watch/sentinel-watch
+WorkingDirectory=%h/.local/share/hawkdog
+ExecStart=%h/.local/share/hawkdog/hawkdog
 Restart=always
 RestartSec=2
 
@@ -14,7 +14,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=%h/.config/sentinel-watch %h/.local/share/sentinel-watch %h/.clawdbot/credentials
+ReadWritePaths=%h/.config/sentinel-watch %h/.local/share/hawkdog %h/.clawdbot/credentials
 
 [Install]
 WantedBy=default.target
