@@ -71,7 +71,7 @@ func loadConfig() (Config, error) {
 		return cfg, errors.New("emailTo and emailFrom required")
 	}
 	if cfg.MsmtpAccount == "" {
-		cfg.MsmtpAccount = "idlepig"
+		cfg.MsmtpAccount = "default"
 	}
 	if cfg.AlertMinIntervalS <= 0 {
 		cfg.AlertMinIntervalS = 60
@@ -106,7 +106,7 @@ func ensureSentinel(path string) error {
 		return err
 	}
 	// Plausible AWS-ish INI, but safely invalid values + private sentinel key.
-	content := fmt.Sprintf("[default]\naws_access_key_id = ASIAFAKEFAKEFAKEFAKE\naws_secret_access_key = NOT_A_REAL_SECRET_%s\naws_session_token = NOT_A_REAL_TOKEN_%s\nx-idlepig-sentinel = %s\n", tok, tok, tok)
+	content := fmt.Sprintf("[default]\naws_access_key_id = ASIAFAKEFAKEFAKEFAKE\naws_secret_access_key = NOT_A_REAL_SECRET_%s\naws_session_token = NOT_A_REAL_TOKEN_%s\nx-hawkdog-sentinel = %s\n", tok, tok, tok)
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		return err
 	}

@@ -2,7 +2,7 @@
 
 A tiny Linux daemon that watches a single “sentinel” file for access and alerts you via **Telegram + email**.
 
-(Internal note for the owner: look for `# ask peasdog` in the watched file.)
+(Internal note for the owner: look for the sentinel marker in the watched file.)
 
 This is designed to catch the class of supply‑chain / instruction-following failures where something unexpectedly touches sensitive local paths.
 
@@ -43,10 +43,10 @@ Create `~/.config/hawkdog/config.json` (preferred) or `~/.config/sentinel-watch/
 {
   "sentinelPath": "/home/ubuntu/.clawdbot/credentials/aws_creds_cache.ini",
   "telegramBotToken": "<BOT_TOKEN>",
-  "telegramChatId": 1592940510,
-  "emailTo": "mark@prove.com.au",
-  "emailFrom": "peasdog@idlepig.com",
-  "msmtpAccount": "idlepig",
+  "telegramChatId": 123456789,
+  "emailTo": "you@example.com",
+  "emailFrom": "noreply@example.com",
+  "msmtpAccount": "default",
   "alertMinIntervalSeconds": 60,
   "startupSuppressSeconds": 90
 }
