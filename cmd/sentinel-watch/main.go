@@ -174,7 +174,7 @@ func watch(cfg Config) error {
 		return fmt.Errorf("ensure sentinel: %w", err)
 	}
 
-	fd, err := unix.InotifyInit1(unix.IN_NONBLOCK)
+	fd, err := unix.InotifyInit1(0)
 	if err != nil {
 		return fmt.Errorf("inotify init: %w", err)
 	}
@@ -196,10 +196,6 @@ func watch(cfg Config) error {
 	for {
 		n, err := unix.Read(fd, buf)
 		if err != nil {
-			if err == unix.EAGAIN {
-				time.Sleep(200 * time.Millisecond)
-				continue
-			}
 			return fmt.Errorf("read inotify: %w", err)
 		}
 		if n <= 0 {
