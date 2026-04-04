@@ -169,6 +169,23 @@ func maskString(mask uint32) string {
 	return strings.Join(parts, "+")
 }
 
+// watchMask is the set of inotify events hawkdog monitors.
+var watchMask = uint32(unix.IN_OPEN | unix.IN_ATTRIB | unix.IN_MODIFY | unix.IN_DELETE_SELF | unix.IN_MOVE_SELF)
+
+// reRegisterDelay is the pause before re-creating the sentinel and watch
+// after a DELETE_SELF or MOVE_SELF event. Prevents tight loops if something
+// is continuously deleting the file.
+var reRegisterDelay = 2 * time.Second
+
+// addWatch registers an inotify watch on path and returns the watch descriptor.
+func addWatch(fd int, path string) (int, error) {
+	wd, err := unix.InotifyAddWatch(fd, path, watchMask)
+	if err != nil {
+		return -1, fmt.Errorf("add watch %s: %w", path, err)
+	}
+	return wd, nil
+}
+
 func watch(cfg Config) error {
 	if err := ensureSentinel(cfg.SentinelPath); err != nil {
 		return fmt.Errorf("ensure sentinel: %w", err)
@@ -180,12 +197,9 @@ func watch(cfg Config) error {
 	}
 	defer unix.Close(fd)
 
-	mask := uint32(unix.IN_OPEN | unix.IN_ATTRIB | unix.IN_MODIFY | unix.IN_DELETE_SELF | unix.IN_MOVE_SELF)
-	wd, err := unix.InotifyAddWatch(fd, cfg.SentinelPath, mask)
-	if err != nil {
-		return fmt.Errorf("add watch: %w", err)
+	if _, err := addWatch(fd, cfg.SentinelPath); err != nil {
+		return err
 	}
-	_ = wd
 
 	start := time.Now()
 	lastAlert := time.Time{}
@@ -209,12 +223,18 @@ func watch(cfg Config) error {
 			continue
 		}
 
+		needReRegister := false
+
 		// Parse one or more events from the inotify buffer
 		off := 0
 		for off < n {
 			ev := (*unix.InotifyEvent)(unsafe.Pointer(&buf[off]))
 			m := ev.Mask
 			off += unix.SizeofInotifyEvent + int(ev.Len)
+
+			if m&(unix.IN_DELETE_SELF|unix.IN_MOVE_SELF) != 0 {
+				needReRegister = true
+			}
 
 			sig := fmt.Sprintf("0x%x", m)
 			if sig == lastSig && !lastAlert.IsZero() && now.Sub(lastAlert) < minInterval {
@@ -236,6 +256,20 @@ func watch(cfg Config) error {
 			} else {
 				fmt.Fprintln(os.Stderr, "email sent")
 			}
+		}
+
+		// Re-create sentinel and watch after deletion/move.
+		if needReRegister {
+			time.Sleep(reRegisterDelay)
+			if err := ensureSentinel(cfg.SentinelPath); err != nil {
+				fmt.Fprintln(os.Stderr, "re-create sentinel failed:", err)
+				continue
+			}
+			if _, err := addWatch(fd, cfg.SentinelPath); err != nil {
+				fmt.Fprintln(os.Stderr, "re-register watch failed:", err)
+				continue
+			}
+			fmt.Fprintln(os.Stderr, "sentinel re-created and watch re-registered")
 		}
 	}
 }
